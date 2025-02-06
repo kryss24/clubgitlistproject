@@ -11,18 +11,29 @@ export const ProjectDetails: React.FC = () => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [editingTask, setEditingTask] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
+  const [session, setSession] = useState<any>(null);
 
-  const checkAuth = async () => {
-    const { data: session } = await supabase.auth.getSession();
-    if (!session.session) {
-      navigate('/');
-      return false;
-    }
-    return true;
-  };
+  useEffect(() => {
+    // Vérifier la session au chargement
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // Écouter les changements d'authentification
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const toggleTask = async (taskId: string, completed: boolean) => {
-    if (!(await checkAuth())) return;
+    if (!session) {
+      navigate('/');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -32,17 +43,14 @@ export const ProjectDetails: React.FC = () => {
 
       if (error) throw error;
 
-      // Mettre à jour le projet localement
       if (project) {
         const updatedTasks = project.tasks.map(task =>
           task.id === taskId ? { ...task, completed: !completed } : task
         );
         
-        // Calculer la nouvelle progression
         const completedTasks = updatedTasks.filter(task => task.completed).length;
         const progress = Math.round((completedTasks / updatedTasks.length) * 100);
 
-        // Mettre à jour la progression du projet
         await supabase
           .from('projects')
           .update({ progress })
@@ -60,17 +68,18 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const addTask = async () => {
-    if (!(await checkAuth()) || !newTaskTitle.trim()) return;
+    if (!session || !newTaskTitle.trim()) return;
 
     try {
       const { data, error } = await supabase
         .from('tasks')
         .insert([{ title: newTaskTitle, project_id: id }])
+        .select()
         .single();
 
       if (error) throw error;
 
-      if (project) {
+      if (project && data) {
         mutate({
           ...project,
           tasks: [...project.tasks, data]
@@ -84,7 +93,7 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!(await checkAuth())) return;
+    if (!session) return;
 
     try {
       const { error } = await supabase
@@ -95,9 +104,19 @@ export const ProjectDetails: React.FC = () => {
       if (error) throw error;
 
       if (project) {
+        const updatedTasks = project.tasks.filter(task => task.id !== taskId);
+        const completedTasks = updatedTasks.filter(task => task.completed).length;
+        const progress = updatedTasks.length ? Math.round((completedTasks / updatedTasks.length) * 100) : 0;
+
+        await supabase
+          .from('projects')
+          .update({ progress })
+          .eq('id', project.id);
+
         mutate({
           ...project,
-          tasks: project.tasks.filter(task => task.id !== taskId)
+          progress,
+          tasks: updatedTasks
         });
       }
     } catch (error) {
@@ -106,7 +125,7 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const editTask = async (taskId: string) => {
-    if (!(await checkAuth()) || !editingTaskTitle.trim()) return;
+    if (!session || !editingTaskTitle.trim()) return;
 
     try {
       const { error } = await supabase
@@ -117,13 +136,11 @@ export const ProjectDetails: React.FC = () => {
       if (error) throw error;
 
       if (project) {
-        const updatedTasks = project.tasks.map(task =>
-          task.id === taskId ? { ...task, title: editingTaskTitle } : task
-        );
-
         mutate({
           ...project,
-          tasks: updatedTasks
+          tasks: project.tasks.map(task =>
+            task.id === taskId ? { ...task, title: editingTaskTitle } : task
+          )
         });
       }
 
@@ -135,7 +152,7 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const deleteProject = async () => {
-    if (!(await checkAuth())) return;
+    if (!session) return;
 
     try {
       const { error } = await supabase
@@ -176,12 +193,14 @@ export const ProjectDetails: React.FC = () => {
 
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-        <button
-          onClick={deleteProject}
-          className="text-red-500 hover:text-red-700"
-        >
-          <Trash2 className="w-6 h-6" />
-        </button>
+        {session && (
+          <button
+            onClick={deleteProject}
+            className="text-red-500 hover:text-red-700"
+          >
+            <Trash2 className="w-6 h-6" />
+          </button>
+        )}
       </div>
       <p className="text-gray-600 mb-8">{project.description}</p>
 
@@ -206,11 +225,22 @@ export const ProjectDetails: React.FC = () => {
         <div className="space-y-4">
           {project.tasks.map((task) => (
             <div key={task.id} className="flex items-center space-x-3 w-full text-left hover:bg-gray-50 p-2 rounded-md transition-colors">
-              {task.completed ? (
-                <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
+              {session ? (
+                <button onClick={() => toggleTask(task.id, task.completed)}>
+                  {task.completed ? (
+                    <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
+                  )}
+                </button>
               ) : (
-                <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
+                task.completed ? (
+                  <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
+                )
               )}
+              
               {editingTask === task.id ? (
                 <input
                   type="text"
@@ -223,33 +253,40 @@ export const ProjectDetails: React.FC = () => {
                   {task.title}
                 </span>
               )}
-              {editingTask === task.id ? (
-                <button onClick={() => editTask(task.id)} className="text-blue-500 hover:text-blue-700">
-                  Save
-                </button>
-              ) : (
-                <button onClick={() => { setEditingTask(task.id); setEditingTaskTitle(task.title); }} className="text-gray-500 hover:text-gray-700">
-                  <Edit3 className="w-5 h-5" />
-                </button>
+              
+              {session && (
+                <>
+                  {editingTask === task.id ? (
+                    <button onClick={() => editTask(task.id)} className="text-blue-500 hover:text-blue-700">
+                      Save
+                    </button>
+                  ) : (
+                    <button onClick={() => { setEditingTask(task.id); setEditingTaskTitle(task.title); }} className="text-gray-500 hover:text-gray-700">
+                      <Edit3 className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button onClick={() => deleteTask(task.id)} className="text-red-500 hover:text-red-700">
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </>
               )}
-              <button onClick={() => deleteTask(task.id)} className="text-red-500 hover:text-red-700">
-                <Trash2 className="w-5 h-5" />
-              </button>
             </div>
           ))}
         </div>
-        <div className="mt-4 flex">
-          <input
-            type="text"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            className="flex-grow p-2 border rounded-md"
-            placeholder="Nouvelle tâche"
-          />
-          <button onClick={addTask} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
-            <PlusCircle className="w-5 h-5" />
-          </button>
-        </div>
+        {session && (
+          <div className="mt-4 flex">
+            <input
+              type="text"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              className="flex-grow p-2 border rounded-md"
+              placeholder="Nouvelle tâche"
+            />
+            <button onClick={addTask} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+              <PlusCircle className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
