@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { CheckSquare, Square, ArrowLeft, Trash2 } from 'lucide-react';
+import { CheckSquare, Square, ArrowLeft, Trash2, Edit3, PlusCircle } from 'lucide-react';
 import { useProject } from '../hooks/useProject';
 import { supabase } from '../lib/supabase';
 
@@ -8,8 +8,22 @@ export const ProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { project, loading, mutate } = useProject(id!);
   const navigate = useNavigate();
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [editingTask, setEditingTask] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState('');
+
+  const checkAuth = async () => {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      navigate('/');
+      return false;
+    }
+    return true;
+  };
 
   const toggleTask = async (taskId: string, completed: boolean) => {
+    if (!(await checkAuth())) return;
+
     try {
       const { error } = await supabase
         .from('tasks')
@@ -45,7 +59,84 @@ export const ProjectDetails: React.FC = () => {
     }
   };
 
+  const addTask = async () => {
+    if (!(await checkAuth()) || !newTaskTitle.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([{ title: newTaskTitle, project_id: id }])
+        .single();
+
+      if (error) throw error;
+
+      if (project) {
+        mutate({
+          ...project,
+          tasks: [...project.tasks, data]
+        });
+      }
+
+      setNewTaskTitle('');
+    } catch (error) {
+      console.error('Error adding task:', error);
+    }
+  };
+
+  const deleteTask = async (taskId: string) => {
+    if (!(await checkAuth())) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      if (project) {
+        mutate({
+          ...project,
+          tasks: project.tasks.filter(task => task.id !== taskId)
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
+  };
+
+  const editTask = async (taskId: string) => {
+    if (!(await checkAuth()) || !editingTaskTitle.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ title: editingTaskTitle })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      if (project) {
+        const updatedTasks = project.tasks.map(task =>
+          task.id === taskId ? { ...task, title: editingTaskTitle } : task
+        );
+
+        mutate({
+          ...project,
+          tasks: updatedTasks
+        });
+      }
+
+      setEditingTask(null);
+      setEditingTaskTitle('');
+    } catch (error) {
+      console.error('Error editing task:', error);
+    }
+  };
+
   const deleteProject = async () => {
+    if (!(await checkAuth())) return;
+
     try {
       const { error } = await supabase
         .from('projects')
@@ -114,21 +205,50 @@ export const ProjectDetails: React.FC = () => {
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Tâches</h2>
         <div className="space-y-4">
           {project.tasks.map((task) => (
-            <button
-              key={task.id}
-              onClick={() => toggleTask(task.id, task.completed)}
-              className="flex items-center space-x-3 w-full text-left hover:bg-gray-50 p-2 rounded-md transition-colors"
-            >
+            <div key={task.id} className="flex items-center space-x-3 w-full text-left hover:bg-gray-50 p-2 rounded-md transition-colors">
               {task.completed ? (
                 <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
               ) : (
                 <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
               )}
-              <span className={task.completed ? 'line-through text-gray-500' : 'text-gray-800'}>
-                {task.title}
-              </span>
-            </button>
+              {editingTask === task.id ? (
+                <input
+                  type="text"
+                  value={editingTaskTitle}
+                  onChange={(e) => setEditingTaskTitle(e.target.value)}
+                  className="flex-grow p-2 border rounded-md"
+                />
+              ) : (
+                <span className={task.completed ? 'line-through text-gray-500' : 'text-gray-800'}>
+                  {task.title}
+                </span>
+              )}
+              {editingTask === task.id ? (
+                <button onClick={() => editTask(task.id)} className="text-blue-500 hover:text-blue-700">
+                  Save
+                </button>
+              ) : (
+                <button onClick={() => { setEditingTask(task.id); setEditingTaskTitle(task.title); }} className="text-gray-500 hover:text-gray-700">
+                  <Edit3 className="w-5 h-5" />
+                </button>
+              )}
+              <button onClick={() => deleteTask(task.id)} className="text-red-500 hover:text-red-700">
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
           ))}
+        </div>
+        <div className="mt-4 flex">
+          <input
+            type="text"
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+            className="flex-grow p-2 border rounded-md"
+            placeholder="Nouvelle tâche"
+          />
+          <button onClick={addTask} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+            <PlusCircle className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>

@@ -1,10 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ProjectList } from './components/ProjectList';
 import { ProjectDetails } from './components/ProjectDetails';
 import { NewProject } from './components/NewProject';
-import { Layout } from 'lucide-react';
+import { Layout, LogIn, LogOut } from 'lucide-react';
+import { AuthModal } from './components/AuthModal';
+import { supabase } from './lib/supabase';
+import { signOut } from './lib/auth';
 
 const ThemeToggleButton: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -17,6 +20,32 @@ const ThemeToggleButton: React.FC = () => {
 };
 
 function App() {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    // Écouter les changements d'authentification
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+    }
+  };
+
   return (
     <ThemeProvider>
       <Router>
@@ -28,7 +57,28 @@ function App() {
                   <Layout className="w-8 h-8 text-blue-600" />
                   <span className="text-xl font-bold text-gray-900">Suivi de Projets</span>
                 </Link>
-                <ThemeToggleButton />
+                <div className="flex items-center space-x-4">
+                  <ThemeToggleButton />
+                  <div>
+                    {session ? (
+                      <button
+                        onClick={handleSignOut}
+                        className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+                      >
+                        <LogOut className="w-5 h-5" />
+                        <span>Déconnexion</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setIsAuthModalOpen(true)}
+                        className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+                      >
+                        <LogIn className="w-5 h-5" />
+                        <span>Connexion</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </nav>
@@ -39,12 +89,18 @@ function App() {
                 <>
                   <h1 className="text-3xl font-bold text-gray-900 mb-8">Mes Projets</h1>
                   <ProjectList />
-                  <NewProject />
+                  {session && <NewProject />}
                 </>
               } />
               <Route path="/project/:id" element={<ProjectDetails />} />
             </Routes>
           </main>
+
+          <AuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+            onSuccess={() => setIsAuthModalOpen(false)}
+          />
         </div>
       </Router>
     </ThemeProvider>
