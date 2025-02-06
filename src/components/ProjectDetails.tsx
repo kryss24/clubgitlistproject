@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { CheckSquare, Square, ArrowLeft, Trash2, Edit3, PlusCircle } from 'lucide-react';
+import { CheckSquare, Square, ArrowLeft, Trash2, Edit3, PlusCircle, UserPlus, UserMinus } from 'lucide-react';
 import { useProject } from '../hooks/useProject';
 import { supabase } from '../lib/supabase';
 
@@ -11,29 +11,55 @@ export const ProjectDetails: React.FC = () => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [editingTask, setEditingTask] = useState<string | null>(null);
   const [editingTaskTitle, setEditingTaskTitle] = useState('');
-  const [session, setSession] = useState<any>(null);
+  const [newCollaboratorEmail, setNewCollaboratorEmail] = useState('');
+  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    // Vérifier la session au chargement
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+    };
+
+    fetchSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
     });
 
-    // Écouter les changements d'authentification
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
   }, []);
 
-  const toggleTask = async (taskId: string, completed: boolean) => {
-    if (!session) {
+  useEffect(() => {
+    const fetchCollaborators = async () => {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('*')
+        .eq('project_id', id);
+
+      if (error) {
+        console.error('Error fetching collaborators:', error);
+      } else {
+        setCollaborators(data || []);
+      }
+    };
+
+    fetchCollaborators();
+  }, [id]);
+
+  const checkAuth = async () => {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
       navigate('/');
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const toggleTask = async (taskId: string, completed: boolean) => {
+    if (!(await checkAuth())) return;
 
     try {
       const { error } = await supabase
@@ -68,7 +94,7 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const addTask = async () => {
-    if (!session || !newTaskTitle.trim()) return;
+    if (!(await checkAuth()) || !newTaskTitle.trim()) return;
 
     try {
       const { data, error } = await supabase
@@ -93,7 +119,7 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!session) return;
+    if (!(await checkAuth())) return;
 
     try {
       const { error } = await supabase
@@ -125,7 +151,7 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const editTask = async (taskId: string) => {
-    if (!session || !editingTaskTitle.trim()) return;
+    if (!(await checkAuth()) || !editingTaskTitle.trim()) return;
 
     try {
       const { error } = await supabase
@@ -152,7 +178,7 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const deleteProject = async () => {
-    if (!session) return;
+    if (!(await checkAuth())) return;
 
     try {
       const { error } = await supabase
@@ -165,6 +191,41 @@ export const ProjectDetails: React.FC = () => {
       navigate('/');
     } catch (error) {
       console.error('Error deleting project:', error);
+    }
+  };
+
+  const addCollaborator = async () => {
+    if (!(await checkAuth()) || !newCollaboratorEmail.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .insert([{ email: newCollaboratorEmail, project_id: id }])
+        .single();
+
+      if (error) throw error;
+
+      setCollaborators([...collaborators, data]);
+      setNewCollaboratorEmail('');
+    } catch (error) {
+      console.error('Error adding collaborator:', error);
+    }
+  };
+
+  const deleteCollaborator = async (collaboratorId: string) => {
+    if (!(await checkAuth())) return;
+
+    try {
+      const { error } = await supabase
+        .from('collaborators')
+        .delete()
+        .eq('id', collaboratorId);
+
+      if (error) throw error;
+
+      setCollaborators(collaborators.filter(collaborator => collaborator.id !== collaboratorId));
+    } catch (error) {
+      console.error('Error deleting collaborator:', error);
     }
   };
 
@@ -193,7 +254,7 @@ export const ProjectDetails: React.FC = () => {
 
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-        {session && (
+        {user && (
           <button
             onClick={deleteProject}
             className="text-red-500 hover:text-red-700"
@@ -220,27 +281,46 @@ export const ProjectDetails: React.FC = () => {
         </div>
       </div>
 
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Collaborateurs</h2>
+        <div className="space-y-4">
+          {collaborators.map((collaborator) => (
+            <div key={collaborator.id} className="flex items-center justify-between">
+              <span className="text-gray-800">{collaborator.email}</span>
+              {user && (
+                <button onClick={() => deleteCollaborator(collaborator.id)} className="text-red-500 hover:text-red-700">
+                  <UserMinus className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {user && (
+          <div className="mt-4 flex">
+            <input
+              type="email"
+              value={newCollaboratorEmail}
+              onChange={(e) => setNewCollaboratorEmail(e.target.value)}
+              className="flex-grow p-2 border rounded-md"
+              placeholder="Email du collaborateur"
+            />
+            <button onClick={addCollaborator} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+              <UserPlus className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Tâches</h2>
         <div className="space-y-4">
           {project.tasks.map((task) => (
             <div key={task.id} className="flex items-center space-x-3 w-full text-left hover:bg-gray-50 p-2 rounded-md transition-colors">
-              {session ? (
-                <button onClick={() => toggleTask(task.id, task.completed)}>
-                  {task.completed ? (
-                    <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
-                  ) : (
-                    <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
-                  )}
-                </button>
+              {task.completed ? (
+                <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
               ) : (
-                task.completed ? (
-                  <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
-                ) : (
-                  <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
-                )
+                <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
               )}
-              
               {editingTask === task.id ? (
                 <input
                   type="text"
@@ -253,8 +333,7 @@ export const ProjectDetails: React.FC = () => {
                   {task.title}
                 </span>
               )}
-              
-              {session && (
+              {user && (
                 <>
                   {editingTask === task.id ? (
                     <button onClick={() => editTask(task.id)} className="text-blue-500 hover:text-blue-700">
@@ -273,7 +352,7 @@ export const ProjectDetails: React.FC = () => {
             </div>
           ))}
         </div>
-        {session && (
+        {user && (
           <div className="mt-4 flex">
             <input
               type="text"
