@@ -58,7 +58,6 @@ function App() {
                   <span className="text-xl font-bold text-gray-900">Suivi de Projets</span>
                 </Link>
                 <div className="flex items-center space-x-4">
-                  <ThemeToggleButton />
                   <div>
                     {session ? (
                       <button
@@ -87,7 +86,7 @@ function App() {
             <Routes>
               <Route path="/" element={
                 <>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-8">Mes Projets</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-8">Listes de projets</h1>
                   <ProjectList />
                   {session && <NewProject />}
                 </>
