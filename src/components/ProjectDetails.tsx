@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { CheckSquare, Square, ArrowLeft, Trash2, Edit3, PlusCircle, UserPlus, UserMinus } from 'lucide-react';
+import { CheckSquare, Square, ArrowLeft, Trash2, Edit3, PlusCircle, UserPlus, UserMinus, Star } from 'lucide-react';
 import { useProject } from '../hooks/useProject';
 import { supabase } from '../lib/supabase';
 
@@ -14,6 +14,9 @@ export const ProjectDetails: React.FC = () => {
   const [newCollaboratorEmail, setNewCollaboratorEmail] = useState('');
   const [collaborators, setCollaborators] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
+  const [rating, setRating] = useState(0);
+  const [userEmail, setUserEmail] = useState('');
+  const [averageRating, setAverageRating] = useState(0);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -46,7 +49,23 @@ export const ProjectDetails: React.FC = () => {
       }
     };
 
+    const fetchRatings = async () => {
+      const { data, error } = await supabase
+        .from('ratings')
+        .select('*')
+        .eq('project_id', id);
+
+      if (error) {
+        console.error('Error fetching ratings:', error);
+      } else {
+        const totalRating = data.reduce((acc, rating) => acc + rating.rating, 0);
+        const average = data.length ? totalRating / data.length : 0;
+        setAverageRating(average);
+      }
+    };
+
     fetchCollaborators();
+    fetchRatings();
   }, [id]);
 
   const checkAuth = async () => {
@@ -229,6 +248,26 @@ export const ProjectDetails: React.FC = () => {
     }
   };
 
+  const addRating = async () => {
+    if (!userEmail.trim() || rating === 0) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('ratings')
+        .insert([{ email: userEmail, rating, project_id: id }])
+        .single();
+
+      if (error) throw error;
+
+      const newAverageRating = (averageRating * collaborators.length + rating) / (collaborators.length + 1);
+      setAverageRating(newAverageRating);
+      setUserEmail('');
+      setRating(0);
+    } catch (error) {
+      console.error('Error adding rating:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -311,16 +350,47 @@ export const ProjectDetails: React.FC = () => {
         )}
       </div>
 
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Notation</h2>
+        <div className="flex items-center mb-4">
+          <span className="text-gray-800 mr-2">Moyenne des notes :</span>
+          <span className="text-yellow-500">{averageRating.toFixed(1)} / 5</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <Star
+              key={star}
+              className={`w-6 h-6 cursor-pointer ${rating >= star ? 'text-yellow-500' : 'text-gray-400'}`}
+              onClick={() => setRating(star)}
+            />
+          ))}
+        </div>
+        <div className="mt-4 flex">
+          <input
+            type="email"
+            value={userEmail}
+            onChange={(e) => setUserEmail(e.target.value)}
+            className="flex-grow p-2 border rounded-md"
+            placeholder="Votre email"
+          />
+          <button onClick={addRating} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+            Noter
+          </button>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Tâches</h2>
         <div className="space-y-4">
           {project.tasks.map((task) => (
             <div key={task.id} className="flex items-center space-x-3 w-full text-left hover:bg-gray-50 p-2 rounded-md transition-colors">
-              {task.completed ? (
-                <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
-              ) : (
-                <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
-              )}
+              <button onClick={() => toggleTask(task.id, task.completed)}>
+                {task.completed ? (
+                  <CheckSquare className="w-6 h-6 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Square className="w-6 h-6 text-gray-400 flex-shrink-0" />
+                )}
+              </button>
               {editingTask === task.id ? (
                 <input
                   type="text"
