@@ -325,12 +325,12 @@ export const ProjectDetails: React.FC = () => {
         Retour aux projets
       </Link>
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-4">
         <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
         {user && (
           <button
             onClick={deleteProject}
-            className="text-red-500 hover:text-red-700"
+            className="text-red-500 hover:text-red-700 mt-4 md:mt-0"
           >
             <Trash2 className="w-6 h-6" />
           </button>
@@ -368,15 +368,15 @@ export const ProjectDetails: React.FC = () => {
             </div>
           ))}
         </div>
-        <div className="mt-4 flex">
+        <div className="mt-4 flex flex-col md:flex-row">
           <input
             type="email"
             value={newCollaboratorEmail}
             onChange={(e) => setNewCollaboratorEmail(e.target.value)}
-            className="flex-grow p-2 border rounded-md"
+            className="flex-grow p-2 border rounded-md mb-4 md:mb-0 md:mr-2"
             placeholder="Email du collaborateur"
           />
-          <button onClick={addCollaborator} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+          <button onClick={addCollaborator} className="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
             Participer
           </button>
         </div>
@@ -427,15 +427,15 @@ export const ProjectDetails: React.FC = () => {
             />
           ))}
         </div>
-        <div className="mt-4 flex">
+        <div className="mt-4 flex flex-col md:flex-row">
           <input
             type="email"
             value={userEmail}
             onChange={(e) => setUserEmail(e.target.value)}
-            className="flex-grow p-2 border rounded-md"
+            className="flex-grow p-2 border rounded-md mb-4 md:mb-0 md:mr-2"
             placeholder="Votre email"
           />
-          <button onClick={addRating} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+          <button onClick={addRating} className="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
             Noter
           </button>
         </div>
@@ -485,15 +485,15 @@ export const ProjectDetails: React.FC = () => {
           ))}
         </div>
         {user && (
-          <div className="mt-4 flex">
+          <div className="mt-4 flex flex-col md:flex-row">
             <input
               type="text"
               value={newTaskTitle}
               onChange={(e) => setNewTaskTitle(e.target.value)}
-              className="flex-grow p-2 border rounded-md"
+              className="flex-grow p-2 border rounded-md mb-4 md:mb-0 md:mr-2"
               placeholder="Nouvelle tâche"
             />
-            <button onClick={addTask} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+            <button onClick={addTask} className="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
               <PlusCircle className="w-5 h-5" />
             </button>
           </div>
