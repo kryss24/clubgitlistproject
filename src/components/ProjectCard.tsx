@@ -1,20 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CheckCircle2, Circle, Clock } from 'lucide-react';
 import { Project } from '../types';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 interface ProjectCardProps {
   project: Project;
 }
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [email, setEmail] = useState('');
+
   const getStatusIcon = () => {
     switch (project.status) {
       case 'completed':
-        return <CheckCircle2 className="w-6 h-6 text-green-500" />;
-      case 'in_progress':
-        return <Clock className="w-6 h-6 text-yellow-500" />;
-      default:
         return <Circle className="w-6 h-6 text-gray-500" />;
     }
   };

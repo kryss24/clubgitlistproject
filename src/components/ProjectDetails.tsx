@@ -17,6 +17,8 @@ export const ProjectDetails: React.FC = () => {
   const [rating, setRating] = useState(0);
   const [userEmail, setUserEmail] = useState('');
   const [averageRating, setAverageRating] = useState(0);
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
+  const [hasAlreadyRated, setHasAlreadyRated] = useState(false);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -214,9 +216,25 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const addCollaborator = async () => {
-    if (!(await checkAuth()) || !newCollaboratorEmail.trim()) return;
+    if (!newCollaboratorEmail.trim()) return;
 
     try {
+      const { data: existingCollaborator, error: fetchError } = await supabase
+        .from('collaborators')
+        .select('*')
+        .eq('project_id', id)
+        .eq('email', newCollaboratorEmail)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      if (existingCollaborator) {
+        setIsAlreadyRegistered(true);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('collaborators')
         .insert([{ email: newCollaboratorEmail, project_id: id }])
@@ -252,6 +270,22 @@ export const ProjectDetails: React.FC = () => {
     if (!userEmail.trim() || rating === 0) return;
 
     try {
+      const { data: existingRating, error: fetchError } = await supabase
+        .from('ratings')
+        .select('*')
+        .eq('project_id', id)
+        .eq('email', userEmail)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        throw fetchError;
+      }
+
+      if (existingRating) {
+        setHasAlreadyRated(true);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('ratings')
         .insert([{ email: userEmail, rating, project_id: id }])
@@ -334,21 +368,49 @@ export const ProjectDetails: React.FC = () => {
             </div>
           ))}
         </div>
-        {user && (
-          <div className="mt-4 flex">
-            <input
-              type="email"
-              value={newCollaboratorEmail}
-              onChange={(e) => setNewCollaboratorEmail(e.target.value)}
-              className="flex-grow p-2 border rounded-md"
-              placeholder="Email du collaborateur"
-            />
-            <button onClick={addCollaborator} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
-              <UserPlus className="w-5 h-5" />
+        <div className="mt-4 flex">
+          <input
+            type="email"
+            value={newCollaboratorEmail}
+            onChange={(e) => setNewCollaboratorEmail(e.target.value)}
+            className="flex-grow p-2 border rounded-md"
+            placeholder="Email du collaborateur"
+          />
+          <button onClick={addCollaborator} className="ml-2 p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+            Participer
+          </button>
+        </div>
+      </div>
+
+      {isAlreadyRegistered && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-semibold mb-4">Déjà enregistré</h2>
+            <p className="text-gray-600 mb-4">Vous êtes déjà enregistré en tant que collaborateur pour ce projet.</p>
+            <button
+              onClick={() => setIsAlreadyRegistered(false)}
+              className="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700"
+            >
+              OK
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {hasAlreadyRated && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-semibold mb-4">Déjà noté</h2>
+            <p className="text-gray-600 mb-4">Vous avez déjà noté ce projet.</p>
+            <button
+              onClick={() => setHasAlreadyRated(false)}
+              className="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Notation</h2>
