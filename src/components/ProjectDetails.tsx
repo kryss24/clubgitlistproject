@@ -95,18 +95,20 @@ export const ProjectDetails: React.FC = () => {
         const updatedTasks = project.tasks.map(task =>
           task.id === taskId ? { ...task, completed: !completed } : task
         );
-        
+
         const completedTasks = updatedTasks.filter(task => task.completed).length;
         const progress = Math.round((completedTasks / updatedTasks.length) * 100);
+        const status = getProjectStatus(updatedTasks);
 
         await supabase
           .from('projects')
-          .update({ progress })
+          .update({ progress, status })
           .eq('id', project.id);
 
         mutate({
           ...project,
           progress,
+          status,
           tasks: updatedTasks
         });
       }
@@ -330,6 +332,16 @@ export const ProjectDetails: React.FC = () => {
       setStartDate(null);
     } catch (error) {
       console.error('Error saving start date:', error);
+    }
+  };
+
+  const getProjectStatus = (tasks: any[]) => {
+    if (tasks.every(task => task.completed)) {
+      return 'completed';
+    } else if (tasks.some(task => task.completed)) {
+      return 'in_progress';
+    } else {
+      return 'not_started';
     }
   };
 
