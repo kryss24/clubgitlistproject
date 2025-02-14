@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { CheckSquare, Square, ArrowLeft, Trash2, Edit3, PlusCircle, UserPlus, UserMinus, Star } from 'lucide-react';
+import { CheckSquare, Square, ArrowLeft, Trash2, Edit3, PlusCircle, UserMinus, Star } from 'lucide-react';
 import { useProject } from '../hooks/useProject';
 import { supabase } from '../lib/supabase';
 
@@ -19,6 +19,7 @@ export const ProjectDetails: React.FC = () => {
   const [averageRating, setAverageRating] = useState(0);
   const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
   const [hasAlreadyRated, setHasAlreadyRated] = useState(false);
+  const [startDate, setStartDate] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -286,7 +287,7 @@ export const ProjectDetails: React.FC = () => {
         return;
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('ratings')
         .insert([{ email: userEmail, rating, project_id: id }])
         .single();
@@ -299,6 +300,36 @@ export const ProjectDetails: React.FC = () => {
       setRating(0);
     } catch (error) {
       console.error('Error adding rating:', error);
+    }
+  };
+
+  const saveStartDate = async () => {
+    if (!startDate) return;
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ realization_date: startDate })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      if (project) {
+        mutate({
+          ...project,
+          realization_date: startDate,
+          id: project.id,
+          name: project.name || '',
+          description: project.description || '',
+          status: project.status || 'not_started',
+          progress: project.progress || 0,
+          tasks: project.tasks || [],
+          created_at: project.created_at || ''
+        });
+      }
+      setStartDate(null);
+    } catch (error) {
+      console.error('Error saving start date:', error);
     }
   };
 
@@ -353,6 +384,23 @@ export const ProjectDetails: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {user && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Entrer la date de début du projet</h2>
+          <div className="flex flex-col md:flex-row items-center">
+            <input
+              type="date"
+              value={startDate || ''}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="flex-grow p-2 border rounded-md mb-4 md:mb-0 md:mr-2"
+            />
+            <button onClick={saveStartDate} className="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-700">
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Collaborateurs</h2>

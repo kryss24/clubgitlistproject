@@ -1,4 +1,5 @@
 export interface Project {
+  realization_date: string | null;
   id: string;
   name: string;
   description: string;

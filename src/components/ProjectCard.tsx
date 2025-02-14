@@ -15,8 +15,18 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
   const getStatusIcon = () => {
     switch (project.status) {
       case 'completed':
+        return <CheckCircle2 className="w-6 h-6 text-green-500" />;
+      case 'in_progress':
+        return <Clock className="w-6 h-6 text-yellow-500" />;
+      default:
         return <Circle className="w-6 h-6 text-gray-500" />;
     }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'coming soon';
+    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
   return (
@@ -37,6 +47,9 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
               className="bg-blue-600 rounded-full h-2 transition-all duration-300"
               style={{ width: `${project.progress}%` }}
             />
+          </div>
+          <div className="text-sm text-gray-500 mt-2">
+            <span>Debut de réalisation : {formatDate(project.realization_date)}</span>
           </div>
         </div>
       </div>
