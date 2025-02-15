@@ -70,7 +70,7 @@ const sendReminderEmails = async () => {
 };
 
 // Schedule the task to run daily at midnight
-cron.schedule('0 0 * * *', sendReminderEmails);
+cron.schedule('0 12 * * *', sendReminderEmails);
 
 // Uncomment the following line to run the function immediately for testing
 sendReminderEmails();
