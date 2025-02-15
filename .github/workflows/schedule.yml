@@ -1,0 +1,12 @@
+name: Schedule Reminder Emails
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # Runs every day at midnight
+
+jobs:
+  send-reminder-emails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Netlify Function
+        run: curl -X POST https://listprojectsgit.netlify.app/.netlify/functions/sendReminderEmails
