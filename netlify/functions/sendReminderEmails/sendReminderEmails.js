@@ -24,7 +24,6 @@ const transporter = nodemailer.createTransport({
 const sendReminderEmails = async () => {
   try {
     console.log('Fetching projects starting in less than 3 days...');
-    // Fetch projects with realization_date in the next 3 days
     const today = new Date();
     const threeDaysFromNow = new Date(today);
     threeDaysFromNow.setDate(today.getDate() + 3);
@@ -41,7 +40,6 @@ const sendReminderEmails = async () => {
 
     for (const project of projects) {
       console.log(`Fetching collaborators for project ${project.name}...`);
-      // Fetch collaborators for the project
       const { data: collaborators, error: collaboratorsError } = await supabase
         .from('collaborators')
         .select('email')
@@ -53,7 +51,6 @@ const sendReminderEmails = async () => {
 
       for (const collaborator of collaborators) {
         console.log(`Sending email to ${collaborator.email}...`);
-        // Send email to each collaborator using Nodemailer
         const mailOptions = {
           from: emailUser,
           to: collaborator.email,
@@ -69,8 +66,18 @@ const sendReminderEmails = async () => {
   }
 };
 
-// Schedule the task to run daily at midnight
-cron.schedule('0 12 * * *', sendReminderEmails);
-
-// Uncomment the following line to run the function immediately for testing
-sendReminderEmails();
+// Export the handler function for Netlify
+export const handler = async (event, context) => {
+  try {
+    await sendReminderEmails();
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Reminder emails sent successfully.' }),
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Error sending reminder emails.', details: error.message }),
+    };
+  }
+};

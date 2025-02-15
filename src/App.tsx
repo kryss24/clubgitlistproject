@@ -22,6 +22,7 @@ const ThemeToggleButton: React.FC = () => {
 function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [session, setSession] = useState<any>(null);
+  const whatsappLink = "https://wa.me/653580776?text=Bonjour,%20j'ai%20une%20idée%20de%20projet%20à%20proposer.";
 
   useEffect(() => {
     // Écouter les changements d'authentification
@@ -100,6 +101,20 @@ function App() {
             onClose={() => setIsAuthModalOpen(false)}
             onSuccess={() => setIsAuthModalOpen(false)}
           />
+        </div>
+        <div className="container mx-auto p-6">
+          <h1 className="text-3xl font-bold mb-4">Votre engagement propulse nos projets vers le succès !</h1>
+          <p className="text-gray-700 mb-8">Une idée de projet ? N'attendez plus ! Soumettez-la et laissez-nous l'aider à prendre forme avec une équipe</p>
+
+          {/* Ajout du bouton ou du lien */}
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block px-6 py-3 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 transition-colors"
+          >
+            Vous avez une idée de projet ? Proposez-le nous
+          </a>
         </div>
       </Router>
     </ThemeProvider>
